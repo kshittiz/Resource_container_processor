@@ -78,8 +78,6 @@ void delete_container(__u64 cid) {
 		prev->next = temp->next;
 		kfree(temp);
 	}
-	if(!con_head)
-		kfree(con_head);
 	
 }
 struct container* find_my_container(__u64 cid) {
@@ -204,11 +202,13 @@ int processor_container_create(struct processor_container_cmd __user *user_cmd)
 				temp_head = temp_head->next;
 			myContainer = (struct container*)kmalloc(sizeof(struct container), GFP_KERNEL);
 			myContainer->next = NULL;
+			myContainer->thread = NULL;
 			temp_head->next = myContainer;
 		}
 	} else { //creating new container
 		myContainer = (struct container*)kmalloc(sizeof(struct container), GFP_KERNEL);
 		myContainer->next = NULL;
+		myContainer->thread = NULL;
 		con_head = myContainer;//initializing head
 	}
 
