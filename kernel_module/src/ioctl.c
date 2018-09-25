@@ -135,11 +135,11 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
 					wake_up_process(temp->tsk);
 					myContainer->thread = temp;
 					mutex_unlock(&myLock);
-					printk("Released lock in delete");
+					printk("Released lock in delete before freeing curr thread");
 					kfree(curr);
 				} else {
 					mutex_unlock(&myLock);
-					printk("Released lock in delete");
+					printk("Released lock in delete before freeing curr thread");
 					kfree(curr);
 				}
 
@@ -154,7 +154,7 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
 		
 		} else { //container is empty
 			mutex_unlock(&myLock);
-			printk("Released lock in delete");
+			printk("Released lock in delete before deleting container");
 			delete_container(myContainer->cid);
 		}
 	} else {
