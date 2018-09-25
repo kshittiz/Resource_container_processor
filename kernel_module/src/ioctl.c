@@ -114,11 +114,8 @@ struct container* find_container_of_current_task(void) {
 }
 
 void print_threads(struct container* temp) {
-	printk("cid:%llu", temp->cid);
-	printk("all threads here:");
 	struct container_thread* t = temp->thread;
 	while(t) {
-		printk(KERN_CONT "pid:%d, ",t->pid);
 		t = t->next;
 	}
 }
@@ -132,7 +129,6 @@ void print_threads(struct container* temp) {
 int processor_container_delete(struct processor_container_cmd __user *user_cmd)
 {	
 	mutex_lock(&myLock); //attaining lock
-	printk("attained lock in delete");
 
 	struct container* myContainer;
 	struct  processor_container_cmd temp;
@@ -144,9 +140,6 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
 			if(myContainer->thread->tsk == current) { //trying to delete first thread
 				struct container_thread* temp = myContainer->thread->next;
 				struct container_thread* curr = myContainer->thread;
-				//curr->next = NULL;
-
-				printk("processId:%d", curr->pid);
 
 				if(temp) { //if not null 
 					wake_up_process(temp->tsk);
@@ -158,7 +151,9 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
 					kfree(curr);
 				}
 
-			} 
+			}  else
+				mutex_unlock(&myLock);
+
 			if(!myContainer->thread) //if container becomes empty then delete it too
 				delete_container(myContainer->cid);
 
@@ -166,12 +161,11 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
 		} else { //container is empty
 			mutex_unlock(&myLock);
 			delete_container(myContainer->cid);
-
 		}
 	} else {
 			mutex_unlock(&myLock);
 	}
-	printk("lock released");
+
     	return 0;
 }
 
@@ -186,7 +180,6 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
 int processor_container_create(struct processor_container_cmd __user *user_cmd)
 {
 	mutex_lock(&myLock);
-	printk("attained lock in create");
 
 	struct container* myContainer;
 	struct container_thread* myThread;
@@ -217,10 +210,9 @@ int processor_container_create(struct processor_container_cmd __user *user_cmd)
 	myThread->pid = current->pid;
 	myThread->tsk = current;
 	myThread->next = NULL;
-	printk("processId:%d", myThread->pid);
+
 	//if containers thread is not null
 	if(myContainer->thread) {
-		printk("myContainer thread not null");
 		struct container_thread* temp_thread = myContainer->thread;
 		while(temp_thread && temp_thread->next)
 			temp_thread = temp_thread->next;
@@ -229,18 +221,13 @@ int processor_container_create(struct processor_container_cmd __user *user_cmd)
 		print_threads(myContainer);
 		mutex_unlock(&myLock); //unlocking before sleep
 		set_current_state(TASK_INTERRUPTIBLE);
-		printk("cid->%llu", (&temp)->cid);
-		printk("lock released");
 		schedule();
 	} else {
 		myContainer->thread = myThread;
 		print_threads(myContainer);
 		mutex_unlock(&myLock);
-		printk("cid->%llu", (&temp)->cid);
-		printk("lock released");
 	}
 
-	
 	return 0;
 }
 
@@ -253,8 +240,6 @@ int processor_container_create(struct processor_container_cmd __user *user_cmd)
 int processor_container_switch(struct processor_container_cmd __user *user_cmd)
 {
 	mutex_lock(&myLock);
-	printk("attained lock in switch");
-
 	struct container* myContainer;
 	struct  processor_container_cmd temp;
 	copy_from_user(&temp, user_cmd, sizeof(struct processor_container_cmd));
@@ -262,7 +247,6 @@ int processor_container_switch(struct processor_container_cmd __user *user_cmd)
 	if(myContainer) { //container is not empty
 		if(myContainer->thread) {//container thread not empty
 			struct container_thread* top = myContainer->thread; //holding top of thread
-			printk("switch pid: %d", top->pid);
 			if(top->next) { //if there is some next task in this container switch to that
 				myContainer->thread = top->next; //moving to next next task;
 				struct container_thread* temp_thread = myContainer->thread; //lets start with next thread
