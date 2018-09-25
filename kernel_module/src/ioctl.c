@@ -91,17 +91,6 @@ struct container* find_my_container(__u64 cid) {
 	return temp;
 }
 
-//returns a thread prior to thread we are finding
-struct container_thread* find_my_thread(struct container_thread* temp) {
-	while(temp) {
-		if(temp->next && temp->next->tsk == current) { //temp should not be null
-		  break;
-		}
-		temp = temp->next;
-	}
-	return temp;
-}
-
 //return container associated with current task
 struct container* find_container_of_current_task(void) {
 	struct container* temp = con_head;
@@ -116,6 +105,7 @@ struct container* find_container_of_current_task(void) {
 void print_threads(struct container* temp) {
 	struct container_thread* t = temp->thread;
 	while(t) {
+		printk(KERN_CONT " processId:%d,", t->pid);
 		t = t->next;
 	}
 }
@@ -129,7 +119,7 @@ void print_threads(struct container* temp) {
 int processor_container_delete(struct processor_container_cmd __user *user_cmd)
 {	
 	mutex_lock(&myLock); //attaining lock
-
+	printk("Attained lock in delete");
 	struct container* myContainer;
 	struct  processor_container_cmd temp;
 	copy_from_user(&temp, user_cmd, sizeof(struct processor_container_cmd));
@@ -145,14 +135,18 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
 					wake_up_process(temp->tsk);
 					myContainer->thread = temp;
 					mutex_unlock(&myLock);
+					printk("Released lock in delete");
 					kfree(curr);
 				} else {
 					mutex_unlock(&myLock);
+					printk("Released lock in delete");
 					kfree(curr);
 				}
 
-			}  else
+			}  else {
 				mutex_unlock(&myLock);
+				printk("Released lock in delete");
+			}
 
 			if(!myContainer->thread) //if container becomes empty then delete it too
 				delete_container(myContainer->cid);
@@ -160,10 +154,12 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
 		
 		} else { //container is empty
 			mutex_unlock(&myLock);
+			printk("Released lock in delete");
 			delete_container(myContainer->cid);
 		}
 	} else {
 			mutex_unlock(&myLock);
+			printk("Released lock in delete");
 	}
 
     	return 0;
@@ -180,7 +176,7 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
 int processor_container_create(struct processor_container_cmd __user *user_cmd)
 {
 	mutex_lock(&myLock);
-
+	printk("Attained lock in create");
 	struct container* myContainer;
 	struct container_thread* myThread;
 	struct  processor_container_cmd temp;
@@ -220,12 +216,14 @@ int processor_container_create(struct processor_container_cmd __user *user_cmd)
 
 		print_threads(myContainer);
 		mutex_unlock(&myLock); //unlocking before sleep
+		printk("Released lock in create before sleeping current thread");
 		set_current_state(TASK_INTERRUPTIBLE);
 		schedule();
 	} else {
 		myContainer->thread = myThread;
 		print_threads(myContainer);
 		mutex_unlock(&myLock);
+		printk("Released lock in create");
 	}
 
 	return 0;
@@ -240,6 +238,7 @@ int processor_container_create(struct processor_container_cmd __user *user_cmd)
 int processor_container_switch(struct processor_container_cmd __user *user_cmd)
 {
 	mutex_lock(&myLock);
+	printk("Attained lock in switch");
 	struct container* myContainer;
 	struct  processor_container_cmd temp;
 	copy_from_user(&temp, user_cmd, sizeof(struct processor_container_cmd));
@@ -247,7 +246,9 @@ int processor_container_switch(struct processor_container_cmd __user *user_cmd)
 	if(myContainer) { //container is not empty
 		if(myContainer->thread) {//container thread not empty
 			struct container_thread* top = myContainer->thread; //holding top of thread
+
 			if(top->next) { //if there is some next task in this container switch to that
+				printk("current thread: %d , switiching to: %d", top->pid, top->next->pid);
 				myContainer->thread = top->next; //moving to next next task;
 				struct container_thread* temp_thread = myContainer->thread; //lets start with next thread
 				top->next = NULL; //making first task point to nothing
@@ -257,6 +258,7 @@ int processor_container_switch(struct processor_container_cmd __user *user_cmd)
 				temp_thread->next = top; //adding first task at the end;
 				wake_up_process(myContainer->thread->tsk);//waking up next task which is already place at top of the list
 				mutex_unlock(&myLock); //unlocking before sleep
+				printk("Released lock in switch before sleeping current thread");
 				set_current_state(TASK_INTERRUPTIBLE);
 				schedule();
 			} else {
@@ -268,6 +270,7 @@ int processor_container_switch(struct processor_container_cmd __user *user_cmd)
 	} else {
 		mutex_unlock(&myLock); //unlocking before sleep
 	}
+	printk("Released lock in switch");
     return 0;
 }
 
