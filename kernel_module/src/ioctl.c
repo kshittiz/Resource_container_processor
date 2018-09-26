@@ -104,7 +104,7 @@ struct container* find_container_of_current_task(void) {
 void print_threads(struct container* temp) {
 	struct container_thread* t = temp->thread;
 	while(t) {
-		printk(KERN_CONT " processId:%d,", t->pid);
+		printk(KERN_CONT " processId:%d, state:%ld ", t->pid, t->tsk->state);
 		t = t->next;
 	}
 }
@@ -118,10 +118,9 @@ void print_threads(struct container* temp) {
 int processor_container_delete(struct processor_container_cmd __user *user_cmd)
 {	
 	struct container* myContainer;
-	struct  processor_container_cmd temp;
 	mutex_lock(&myLock); //attaining lock
 	printk("Attained lock in delete");
-	copy_from_user(&temp, user_cmd, sizeof(struct processor_container_cmd));
+
 	myContainer = find_container_of_current_task(); //finding correct container associated with this thread
 	if(myContainer) { //container is not empty
 		if(myContainer->thread) {//container thread not empty
@@ -132,34 +131,27 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
 				if(temp) { //if not null 
 					myContainer->thread = temp;
 					wake_up_process(temp->tsk);
-					mutex_unlock(&myLock);
-					printk("Released lock in delete before freeing curr thread");
-					kfree(curr);
 				} else {
 					myContainer->thread = NULL;
-					mutex_unlock(&myLock);
-					printk("Released lock in delete before freeing curr thread");
-					kfree(curr);
 				}
 
-			}  else {
-				mutex_unlock(&myLock);
-				printk("Released lock in delete");
-			}
+				kfree(curr);
+			}  
+
 			printk("Remaining threads after deleting curr");
 			print_threads(myContainer);
-			if(!myContainer->thread) //if container becomes empty then delete it too
+			if(!myContainer->thread) { //if container becomes empty then delete it too
+				printk("deleting container");
 				delete_container(myContainer->cid);
+			}
 
 		} else {
-			mutex_lock(&myLock); //attaining lock
-			printk("Attained lock in delete");
+			printk("deleting container");
+			delete_container(myContainer->cid);
 		}
-	} else {
-		mutex_lock(&myLock); //attaining lock
-		printk("Attained lock in delete");
 	}
-
+	mutex_unlock(&myLock);
+	printk("Released lock in delete");
     	return 0;
 }
 
@@ -238,11 +230,9 @@ int processor_container_create(struct processor_container_cmd __user *user_cmd)
 int processor_container_switch(struct processor_container_cmd __user *user_cmd)
 {
 	struct container* myContainer;
-	struct  processor_container_cmd temp;
 	mutex_lock(&myLock);
 	printk("Attained lock in switch");
 
-	copy_from_user(&temp, user_cmd, sizeof(struct processor_container_cmd));
 	myContainer = find_container_of_current_task(); //finding correct container associated with this current thread
 	if(myContainer) { //container is not empty
 		if(myContainer->thread) {//container thread not empty
