@@ -48,14 +48,13 @@
 static DEFINE_MUTEX (myLock);
 
 struct container {
-__u64 op;
 __u64 cid;
 struct container_thread* thread; //represent head of thread list
 struct container* next;
 } *con_head = NULL;
 
 struct container_thread {
-int pid;
+pid_t pid;
 struct task_struct* tsk;
 struct container_thread* next;
 };
@@ -95,7 +94,7 @@ struct container* find_my_container(__u64 cid) {
 struct container* find_container_of_current_task(void) {
 	struct container* temp = con_head;
 	while(temp) {
-		if(temp->thread->tsk == current) //thread found in this container at first position or anywhere after
+		if(temp->thread->pid == current->pid) //thread found in this container at first position or anywhere after
 			break;
 		temp = temp->next;
 	}
@@ -126,13 +125,13 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
 	myContainer = find_container_of_current_task(); //finding correct container associated with this thread
 	if(myContainer) { //container is not empty
 		if(myContainer->thread) {//container thread not empty
-			if(myContainer->thread->tsk == current) { //trying to delete first thread
+			if(myContainer->thread->pid == current->pid) { //trying to delete first thread
 				struct container_thread* temp = myContainer->thread->next;
 				struct container_thread* curr = myContainer->thread;
 				printk("deleting thread: %d", curr->pid);
 				if(temp) { //if not null 
-					wake_up_process(temp->tsk);
 					myContainer->thread = temp;
+					wake_up_process(temp->tsk);
 					mutex_unlock(&myLock);
 					printk("Released lock in delete before freeing curr thread");
 					kfree(curr);
@@ -189,12 +188,14 @@ int processor_container_create(struct processor_container_cmd __user *user_cmd)
 			while(temp_head && temp_head->next)
 				temp_head = temp_head->next;
 			myContainer = (struct container*)kmalloc(sizeof(struct container), GFP_KERNEL);
+			myContainer->cid = (&temp)->cid; 
 			myContainer->next = NULL;
 			myContainer->thread = NULL;
 			temp_head->next = myContainer;
 		}
 	} else { //creating new container
 		myContainer = (struct container*)kmalloc(sizeof(struct container), GFP_KERNEL);
+		myContainer->cid = (&temp)->cid; 
 		myContainer->next = NULL;
 		myContainer->thread = NULL;
 		con_head = myContainer;//initializing head
