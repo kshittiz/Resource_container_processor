@@ -45,8 +45,6 @@
 #include <linux/sched.h>
 #include <linux/kthread.h>
 
-//static DEFINE_MUTEX (myLock);
-
 struct container {
 __u64 cid;
 struct container_thread* thread; //represent head of thread list
